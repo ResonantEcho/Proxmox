@@ -1,0 +1,175 @@
+Proxmox Thunderbolt Config
+
+
+————————————————————————
+Things to install:
+————————————————————————
+
+apt install lldpd
+apt install frr
+apt install iperf3
+
+apt install proxmox-kernel-6.5.13-5-pve-signed
+proxmox-boot-tool kernel pin 6.5.13-5-pve
+
+
+
+iperf3 -c 10.0.0.82
+
+
+————————————————————————
+Load Kernal Module --> nano /etc/modules 
+————————————————————————
+
+thunderbolt-net
+
+ 
+
+————————————————————————
+Prepare Network Interface --> nano /etc/network/interfaces
+————————————————————————
+
+auto lo
+iface lo inet loopback
+
+auto lo:0
+iface lo:0 inet static
+        address 10.0.0.81/32
+
+iface eno1 inet manual
+
+allow-hotplug en05
+iface en05 inet manual
+        mtu 1500
+
+auto vmbr0
+iface vmbr0 inet static
+        address 192.168.12.98/24
+        gateway 192.168.12.1
+        bridge-ports eno1
+        bridge-stp off
+        bridge-fd 0
+
+source /etc/network/interfaces.d/*
+ 
+
+
+————————————————————————
+Rename Thunderbolt Connection --> nano /etc/systemd/network/00-thunderbolt0.link
+————————————————————————
+
+[Match]
+Path=pci-0000:03:00.0
+Driver=thunderbolt-net
+[Link]
+MACAddressPolicy=none
+Name=en05
+
+
+————————————————————————
+nano /etc/udev/rules.d/10-tb-en.rules
+————————————————————————
+
+ACTION=="move", SUBSYSTEM=="net", KERNEL=="en05", RUN+="/usr/local/bin/pve-en05.sh"
+
+
+
+————————————————————————
+nano /etc/sysctl.conf
+————————————————————————
+
+net.ipv4.ip_forward=1
+
+
+
+————————————————————————
+nano /etc/network/if-up.d/restart-frr
+————————————————————————
+
+#!/bin/sh
+
+# Check if the interface is en05
+if [ "$IFACE" = "en05" ]; then
+    # Restart the frr service
+    /usr/bin/systemctl restart frr.service
+fi
+
+
+————————————————————————
+nano /usr/local/bin/pve-en05.sh
+————————————————————————
+
+#!/bin/bash
+
+# this brings the renamed interface up and reprocesses any settings in /etc/network/interfaces for the rename>
+
+/usr/sbin/ifup en05
+
+ 
+
+————————————————————————
+nano /etc/init.d/thunderbolt-affinity
+————————————————————————
+
+#!/bin/bash
+
+for id in $(grep 'thunderbolt' /proc/interrupts | awk '{print $1}' | cut -d ':' -f1); do
+
+    echo 0f > /proc/irq/$id/smp_affinity
+
+done
+
+------------------------
+
+update-rc.d thunderbolt-affinity defaults
+
+(Run after the above line is done)
+
+
+————————————————————————
+nano /etc/network/if-up.d/thunderbolt-affinity 
+————————————————————————
+
+#!/bin/bash
+
+for id in $(grep 'thunderbolt' /proc/interrupts | awk '{print $1}' | cut -d ':' -f1); do
+
+    echo 0f > /proc/irq/$id/smp_affinity
+
+done
+
+ 
+————————————————————————
+nano /etc/frr/frr.conf
+————————————————————————
+
+ip forwarding
+no ipv6 forwarding
+!
+interface en05
+ip router openfabric 1
+exit
+!
+interface lo
+ip router openfabric 1
+openfabric passive
+exit
+!
+router openfabric 1
+net 49.0000.0000.0002.00
+exit
+!
+
+end
+write memory
+
+
+
+————————————————————————
+Verify File Permissions
+————————————————————————
+
+ls -l /etc/network/if-up.d/restart-frr
+ls -l /etc/systemd/network/00-thunderbolt0.link
+ls -l /usr/local/bin/pve-en05.sh
+ls -l /etc/udev/rules.d/10-tb-en.rules
