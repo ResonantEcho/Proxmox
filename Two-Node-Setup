@@ -9,24 +9,26 @@ apt install lldpd
 apt install frr
 apt install iperf3
 
+————————————————————————
+After completed Install Commands:
+————————————————————————
 apt install proxmox-kernel-6.5.13-5-pve-signed
 proxmox-boot-tool kernel pin 6.5.13-5-pve
-
-
 
 iperf3 -c 10.0.0.82
 
 
 ————————————————————————
-Load Kernal Module --> nano /etc/modules 
+Load Kernal Module 
+nano /etc/modules 
 ————————————————————————
 
 thunderbolt-net
 
- 
 
 ————————————————————————
-Prepare Network Interface --> nano /etc/network/interfaces
+Prepare Network Interface 
+nano /etc/network/interfaces
 ————————————————————————
 
 auto lo
@@ -34,7 +36,7 @@ iface lo inet loopback
 
 auto lo:0
 iface lo:0 inet static
-        address 10.0.0.81/32
+        address 10.0.0.8X/32
 
 iface eno1 inet manual
 
@@ -44,7 +46,7 @@ iface en05 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-        address 192.168.12.98/24
+        address 192.168.1.XX/24
         gateway 192.168.12.1
         bridge-ports eno1
         bridge-stp off
@@ -55,7 +57,8 @@ source /etc/network/interfaces.d/*
 
 
 ————————————————————————
-Rename Thunderbolt Connection --> nano /etc/systemd/network/00-thunderbolt0.link
+Rename Thunderbolt Connection
+nano /etc/systemd/network/00-thunderbolt0.link
 ————————————————————————
 
 [Match]
@@ -138,10 +141,22 @@ for id in $(grep 'thunderbolt' /proc/interrupts | awk '{print $1}' | cut -d ':' 
 
 done
 
- 
+
 ————————————————————————
+Enable fabricd daemon
+nano /etc/frr/daemons
+————————————————————————
+
+Change fabricd=no to yes
+
+
+————————————————————————
+Install FRR and Configure
 nano /etc/frr/frr.conf
 ————————————————————————
+enter the FRR shell with > vtysh
+> configure
+Copy and paste >
 
 ip forwarding
 no ipv6 forwarding
@@ -160,10 +175,11 @@ net 49.0000.0000.0002.00
 exit
 !
 
-end
-write memory
+type end
+type write memory
+type exit
 
-
+vtysh -c "show openfabric topology" to verify
 
 ————————————————————————
 Verify File Permissions
