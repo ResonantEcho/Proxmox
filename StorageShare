@@ -1,0 +1,42 @@
+(1) FILE SERVER ---
+
+# Create a share (Windows, Linux, etc)
+
+nas_media
+
+---------------
+
+
+PVE HOST ---
+
+# Create Directory on PVE Host
+
+mkdir -p /mnt/lxc_shares/nas_media
+
+
+# Point to share in PVE Host FSTAB
+
+nano /etc/fstab
+
+//192.168.12.25/nas_media/ /mnt/lxc_shares/nas_media cifs _netdev,x-systemd.automount,noatime,uid=100000,gid=110000,dir_mode=0770,file_mode=0770,user=jadmin,pass=G3n3r1c24$ 0 0
+
+
+# Mount Share to LXC -- Last Step
+
+{ echo 'mp0: /mnt/lxc_shares/nas_media/,mp=/mnt/nas_media' ; } | tee -a /etc/pve/lxc/105.conf
+
+
+
+LXC Machine ----
+
+# Create User Group on the LXC
+
+groupadd -g 10000 lxc_shares
+
+
+# Add "App User" to the new lxc_shares Group
+
+usermod -aG lxc_shares USERNAME (i.e. plex)
+
+(use command "ps aux" to find list of services/users)
+
